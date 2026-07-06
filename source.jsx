@@ -1,4 +1,4 @@
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 // ============ ДАННЫЕ ============
 
 const CHANNELS = {
@@ -82,7 +82,7 @@ const ZONES = [
       { name: "Совместная память и предвкушение", channels: ["mind", "bond"], who: ["us"], desc: "«А помнишь…» — плюс планы: свидание, поездка, встреча.", details: "Вспоминать хорошее психологически легче, чем выжимать желание из сегодняшнего дня, и общая эротическая память остаётся ресурсом даже в глубоком спаде. А предвкушение — это и есть желание, только направленное вперёд: спланированное свидание, поездка, для пар на расстоянии — дата встречи. Хуже всего либидо переносит неопределённость; даже примерная дата даёт точку опоры." },
       { name: "Забота о состоянии — без задней мысли", channels: ["bond"], who: ["us", "alina"], desc: "Долгий спад — повод мягко посмотреть на сон, стресс, гормоны, эмоции.", details: "Либидо — чуткий прибор: усталость, стресс, щитовидка, пролактин, контрацептивы, антидепрессанты, невысказанные обиды — всё отражается на нём, при любом поле. Вопрос «как ты вообще, может, провериться — для себя?» звучит как забота. Тот же вопрос с подтекстом «чтобы у нас снова был секс» звучит как давление. Разница слышна мгновенно, и скрыть её невозможно." },
       { name: "Собственное поле чувственности", channels: ["touch", "energy"], who: ["alina"], desc: "Практики для себя — если самой стороне спада захочется.", details: "У стороны спада есть своя половина этой карты: mindful-практики, аудио, масляные ритуалы, танцы — способы заново познакомиться с телом там, где никто ничего не ждёт. Поле это личное, и темп тоже личный. Максимум, что может сделать вторая сторона, — показать карту и отойти. Дальше — само или никак." },
-      { name: "Совместное чтение этой карты", channels: ["bond", "mind"], who: ["us"], desc: "Сама карта — как повод для разговора.", details: "Обсуждать пункты на экране проще, чем произносить «я хочу»: неловкость забирает на себя карта. В секс-терапии это отдельный приём — списки «да / любопытно / точно нет»; пошаговый формат для двоих описан внизу страницы. Работает именно потому, что первый шаг делается молча." },
+      { name: "Совместное чтение этой карты", channels: ["bond", "mind"], who: ["us"], desc: "Сама карта — как повод для разговора.", details: "Обсуждать пункты на экране проще, чем произносить «я хочу»: неловкость забирает на себя карта. В секс-терапии это отдельный приём — списки «да / любопытно / нет»; пошаговый формат для двоих описан внизу страницы. Работает именно потому, что первый шаг делается молча." },
     ],
   },
   {
@@ -154,6 +154,67 @@ const ZONES = [
     ],
   },
 ];
+
+// ============ ОТМЕТКИ (да / любопытно / нет) ============
+// Каждый партнёр отмечает пункты на своём устройстве (localStorage). Отметки можно
+// упаковать в короткую ссылку и переслать — партнёр открывает её и видит, где совпало.
+
+const VOTE = {
+  yes:   { label: "да",        color: "#3F8A68" },
+  maybe: { label: "любопытно", color: "#A07A2E" },
+  no:    { label: "нет", color: "#9B97A3" },
+};
+const VOTE_ORDER = ["yes", "maybe", "no"];
+
+// Плоский порядок пунктов = стабильный индекс для хранения и ссылки.
+// ВАЖНО: не переупорядочивать и не удалять пункты задним числом — иначе старые
+// ссылки-сравнения съедут. Дописывать новые пункты можно только в конец списка.
+const ITEM_META = [];
+ZONES.forEach(z => z.items.forEach(it => ITEM_META.push({ name: it.name, hue: z.hue, num: z.num, item: it })));
+const ITEM_COUNT = ITEM_META.length;
+const ITEM_INDEX = new Map(ITEM_META.map((m, i) => [m.name, i]));
+
+const VOTES_KEY = "poleigry.votes.v1";
+function loadVotes() {
+  try { const r = JSON.parse(localStorage.getItem(VOTES_KEY)); return (r && typeof r === "object") ? r : {}; }
+  catch (e) { return {}; }
+}
+function saveVotes(v) { try { localStorage.setItem(VOTES_KEY, JSON.stringify(v)); } catch (e) {} }
+
+// 2 бита на пункт (0 — нет отметки, 1 да, 2 любопытно, 3 нет) → base64url, префикс версии «A».
+const VCODE = { yes: 1, maybe: 2, no: 3 };
+const VDECODE = { 1: "yes", 2: "maybe", 3: "no" };
+function b64urlEnc(bytes) {
+  let s = ""; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64urlDec(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/"); while (str.length % 4) str += "=";
+  const s = atob(str), b = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+  return b;
+}
+function encodeVotes(votes) {
+  const b = new Uint8Array(Math.ceil(ITEM_COUNT / 4));
+  for (let i = 0; i < ITEM_COUNT; i++) { const c = VCODE[votes[i]] || 0; b[i >> 2] |= c << ((i & 3) * 2); }
+  return "A" + b64urlEnc(b);
+}
+function decodeVotes(str) {
+  if (!str || str[0] !== "A") return null;
+  try {
+    const b = b64urlDec(str.slice(1)), out = {};
+    for (let i = 0; i < ITEM_COUNT; i++) { const c = (b[i >> 2] >> ((i & 3) * 2)) & 3; if (c) out[i] = VDECODE[c]; }
+    return out;
+  } catch (e) { return null; }
+}
+function parseCompareLink(str) {
+  if (!str) return null;
+  const m = str.match(/[#?&]c=([^&\s]+)/);
+  let raw = m ? m[1] : str.trim();
+  try { raw = decodeURIComponent(raw); } catch (e) {}
+  return decodeVotes(raw);
+}
+function voteScore(a, b) { return (a === "yes" ? 1 : 0) + (b === "yes" ? 1 : 0); }
 
 // ============ ВОЛНЫ (сигнатура) ============
 
@@ -293,9 +354,10 @@ function Dot({ color }) {
   return <span style={{ width: 6, height: 6, borderRadius: 6, background: color, display: "inline-block", flexShrink: 0 }} />;
 }
 
-function ItemIcon({ item, hue, open }) {
+function ItemIcon({ item, hue, open, vote }) {
   return (
     <div style={{
+      position: "relative",
       width: 40, height: 40, flexShrink: 0, borderRadius: 11,
       background: open ? hexA(hue, 0.16) : hexA(hue, 0.085),
       border: `1px solid ${hexA(hue, open ? 0.55 : 0.22)}`,
@@ -306,13 +368,17 @@ function ItemIcon({ item, hue, open }) {
            fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         {ICONS[item.name] || ICONS._default}
       </svg>
+      {vote && (
+        <span aria-hidden style={{ position: "absolute", top: -4, right: -4, width: 10, height: 10, borderRadius: 10, background: VOTE[vote].color, border: "2px solid #FFFFFF" }} />
+      )}
     </div>
   );
 }
 
-function ItemCard({ item, hue }) {
+function ItemCard({ item, hue, vote, onVote }) {
   const [open, setOpen] = useState(false);
   const toggle = () => setOpen(o => !o);
+  const accent = vote ? VOTE[vote].color : (open ? hue : null);
   return (
     <div
       className="pi-card"
@@ -326,15 +392,15 @@ function ItemCard({ item, hue }) {
         "--hue": hue,
         background: "#FFFFFF",
         border: "1px solid #E9E5DC",
-        borderLeft: open ? `3px solid ${hue}` : "1px solid #E9E5DC",
+        borderLeft: accent ? `3px solid ${accent}` : "1px solid #E9E5DC",
         borderRadius: 14,
-        padding: open ? "15px 17px 16px 15px" : "15px 17px",
+        padding: open ? "15px 17px 16px 15px" : (accent ? "15px 17px 15px 15px" : "15px 17px"),
         cursor: "pointer",
         boxShadow: open ? "0 6px 24px rgba(35,34,42,0.07)" : "none",
       }}
     >
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <ItemIcon item={item} hue={hue} open={open} />
+        <ItemIcon item={item} hue={hue} open={open} vote={vote} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
             <div style={{ fontWeight: 600, fontSize: 15.5, color: "#23222A", lineHeight: 1.32 }}>
@@ -377,6 +443,27 @@ function ItemCard({ item, hue }) {
           </span>
         ))}
       </div>
+      {open && (
+        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #F0EDE5", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "#B0ACA0", fontWeight: 600, marginRight: 3 }}>тебе это</span>
+          {VOTE_ORDER.map(k => {
+            const active = vote === k, c = VOTE[k].color;
+            return (
+              <button key={k}
+                onClick={(e) => { e.stopPropagation(); onVote(active ? null : k); }}
+                onKeyDown={(e) => e.stopPropagation()}
+                aria-pressed={active}
+                style={{
+                  padding: "7px 15px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  background: active ? c : "transparent", color: active ? "#FBFAF6" : "#7A7784",
+                  border: `1px solid ${active ? c : "#DDD9CF"}`, transition: "all .15s",
+                }}>
+                {VOTE[k].label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -397,11 +484,193 @@ function ZoneLocator({ pos, hue, place }) {
   );
 }
 
+// ============ СРАВНЕНИЕ ОТМЕТОК ============
+
+function MarkChip({ state }) {
+  if (!state) return <span style={{ width: 74, textAlign: "right", flexShrink: 0, fontSize: 12, color: "#C7C3B8" }}>—</span>;
+  const v = VOTE[state];
+  return (
+    <span style={{ width: 74, flexShrink: 0, display: "inline-flex", justifyContent: "flex-end", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: v.color }}>
+      <span style={{ width: 7, height: 7, borderRadius: 7, background: v.color }} />{v.label}
+    </span>
+  );
+}
+
+function CompareRow({ i, votes, partner }) {
+  const m = ITEM_META[i];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid #F2EFE8" }}>
+      <span style={{ width: 7, height: 7, borderRadius: 7, background: m.hue, flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: "#33313B", fontWeight: 550 }}>{m.name}</span>
+      <MarkChip state={votes[i]} />
+      <MarkChip state={partner[i]} />
+    </div>
+  );
+}
+
+function CompareBlock({ title, hint, tone, ids, votes, partner }) {
+  if (!ids.length) return null;
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 8, background: tone, flexShrink: 0 }} />
+        <span style={{ fontSize: 14.5, fontWeight: 650, color: "#23222A" }}>{title}</span>
+        <span style={{ fontSize: 12.5, color: "#A9A599" }}>{ids.length}</span>
+      </div>
+      {hint && <p style={{ fontSize: 12.5, color: "#8A8794", margin: "0 0 6px 16px", lineHeight: 1.5 }}>{hint}</p>}
+      <div style={{ marginLeft: 16 }}>
+        {ids.map(i => <CompareRow key={i} i={i} votes={votes} partner={partner} />)}
+      </div>
+    </div>
+  );
+}
+
+function ComparePanel({ votes, partner, setPartner, votedCount, onClose, onRestore }) {
+  const [pasted, setPasted] = useState("");
+  const [showDiverge, setShowDiverge] = useState(false);
+
+  const buckets = useMemo(() => {
+    if (!partner) return null;
+    const both = [], one = [], diverge = [];
+    for (let i = 0; i < ITEM_COUNT; i++) {
+      const a = votes[i], b = partner[i];
+      const ap = a === "yes" || a === "maybe", bp = b === "yes" || b === "maybe";
+      if (ap && bp) both.push(i);
+      else if ((ap && !b) || (!a && bp)) one.push(i);
+      else if ((ap && b === "no") || (a === "no" && bp)) diverge.push(i);
+    }
+    both.sort((x, y) => voteScore(votes[y], partner[y]) - voteScore(votes[x], partner[x]));
+    return { both, one, diverge };
+  }, [partner, votes]);
+
+  const tryPaste = (val) => {
+    setPasted(val);
+    const p = parseCompareLink(val);
+    if (p && Object.keys(p).length) setPartner(p);
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(35,34,42,0.42)", backdropFilter: "blur(2px)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#FBFAF6", width: "100%", maxWidth: 620, maxHeight: "88vh", overflowY: "auto", borderRadius: "20px 20px 0 0", padding: "22px 22px 30px", boxShadow: "0 -10px 40px rgba(35,34,42,0.2)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div style={{ fontFamily: "'Spectral', serif", fontStyle: "italic", fontSize: 22, color: "#23222A" }}>Где вы совпали</div>
+          <button onClick={onClose} aria-label="закрыть" style={{ background: "none", border: "none", fontSize: 26, color: "#A9A599", cursor: "pointer", lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+
+        {!partner && (
+          <div>
+            <p style={{ fontSize: 14, color: "#6E6B78", lineHeight: 1.6, margin: "0 0 14px" }}>
+              Вставьте ссылку, которую прислал партнёр, — карта покажет, где ваши отметки совпали.
+              Или сначала нажмите «Поделиться» и пошлите свою ссылку ему.
+            </p>
+            <input value={pasted} onChange={(e) => tryPaste(e.target.value)} placeholder="вставь ссылку партнёра"
+              style={{ width: "100%", padding: "11px 14px", fontSize: 14, borderRadius: 12, border: "1px solid #DDD9CF", background: "#fff", color: "#23222A", outline: "none" }} />
+            {pasted && !partner && <p style={{ fontSize: 12.5, color: "#C2566F", margin: "8px 0 0" }}>Не получилось прочитать ссылку — проверьте, что скопировали её целиком.</p>}
+          </div>
+        )}
+
+        {partner && votedCount === 0 && (
+          <div style={{ margin: "6px 0 0" }}>
+            <p style={{ fontSize: 14, color: "#6E6B78", lineHeight: 1.65, margin: 0 }}>
+              Отметки партнёра получены — но сначала пройдите карту сами: открывайте карточки и выбирайте «да / любопытно / нет».
+              Чужой выбор специально спрятан, чтобы не влиять на ваш. Как отметите своё — здесь появится, где вы совпали.
+            </p>
+            <p style={{ fontSize: 13, color: "#8A8794", lineHeight: 1.6, margin: "14px 0 0" }}>
+              Это ваша собственная сохранённая ссылка?{" "}
+              <button onClick={() => onRestore(partner)} style={{ background: "none", border: "none", padding: 0, color: "#7D5BA6", cursor: "pointer", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>
+                Восстановить мои отметки
+              </button>
+            </p>
+          </div>
+        )}
+
+        {partner && votedCount > 0 && buckets && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "#B0ACA0", fontWeight: 600, marginBottom: 8, paddingRight: 2 }}>
+              <span style={{ width: 74, textAlign: "right" }}>ты</span>
+              <span style={{ width: 74, textAlign: "right" }}>партнёр</span>
+            </div>
+            {(buckets.both.length + buckets.one.length + buckets.diverge.length) === 0 && (
+              <p style={{ fontSize: 14, color: "#6E6B78", lineHeight: 1.6 }}>Пока пересечений нет — но вы ещё не всё отметили. Пройдите побольше и загляните снова.</p>
+            )}
+            <CompareBlock title="Обоим интересно" tone="#3F8A68"
+              hint="С этого проще всего начать разговор — интерес есть у обоих."
+              ids={buckets.both} votes={votes} partner={partner} />
+            <CompareBlock title="Интересно одному" tone="#A07A2E"
+              hint="Один отметил, второй прошёл мимо — может, просто не дошёл. Есть чем поделиться друг с другом."
+              ids={buckets.one} votes={votes} partner={partner} />
+            {buckets.diverge.length > 0 && (
+              <div>
+                <button onClick={() => setShowDiverge(s => !s)} style={{ background: "none", border: "none", color: "#9B97A3", cursor: "pointer", fontSize: 13, padding: "4px 0", textDecoration: "underline" }}>
+                  {showDiverge ? "скрыть" : "где разошлись"} · {buckets.diverge.length}
+                </button>
+                {showDiverge && (
+                  <div style={{ marginTop: 6 }}>
+                    <p style={{ fontSize: 12.5, color: "#8A8794", margin: "0 0 8px", lineHeight: 1.5 }}>
+                      Здесь мнения разные — и это нормально. Не список для уговоров, просто честная картинка.
+                    </p>
+                    {buckets.diverge.map(i => <CompareRow key={i} i={i} votes={votes} partner={partner} />)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [whoFilter, setWhoFilter] = useState(null);
   const [chFilter, setChFilter] = useState(null);
   const [hiBody, setHiBody] = useState(null); // анатомия стороны роста: 'f' | 'm' | null
   const [loBody, setLoBody] = useState(null); // анатомия стороны спада
+
+  // --- Отметки: своё хранится на устройстве, чужое приходит по ссылке ---
+  const [votes, setVotes] = useState(loadVotes);
+  const [partner, setPartner] = useState(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => { saveVotes(votes); }, [votes]);
+  useEffect(() => {
+    const m = (location.hash || "").match(/[#&]c=([^&]+)/);
+    if (m) {
+      const p = decodeVotes(decodeURIComponent(m[1]));
+      if (p && Object.keys(p).length) {
+        setPartner(p);
+        try { sessionStorage.setItem("poleigry.partner", m[1]); } catch (e) {}
+        try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+        setCompareOpen(true);
+      }
+    } else {
+      try { const s = sessionStorage.getItem("poleigry.partner"); if (s) { const p = decodeVotes(s); if (p) setPartner(p); } } catch (e) {}
+    }
+  }, []);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
+
+  const votedCount = Object.keys(votes).length;
+  const setVote = (id, state) => setVotes(v => { const n = { ...v }; if (state == null) delete n[id]; else n[id] = state; return n; });
+  const acceptPartner = (p) => { setPartner(p); try { sessionStorage.setItem("poleigry.partner", encodeVotes(p)); } catch (e) {} };
+  const clearMine = () => { if (typeof confirm !== "function" || confirm("Убрать все твои отметки с этого устройства?")) setVotes({}); };
+  const restoreMine = (payload) => {
+    if (!payload || !Object.keys(payload).length) return;
+    setVotes(payload);
+    setPartner(null);
+    try { sessionStorage.removeItem("poleigry.partner"); } catch (e) {}
+    setCompareOpen(false);
+    setToast("Отметки восстановлены на этом устройстве");
+  };
+  const share = async () => {
+    const url = location.origin + location.pathname + "#c=" + encodeVotes(votes);
+    const text = `Отметил(а) ${votedCount} из ${ITEM_COUNT} в «Поле игры». Пройди свои — ссылка покажет, где у нас совпало.`;
+    try { if (navigator.share) { await navigator.share({ title: "Поле игры — мои отметки", text, url }); return; } }
+    catch (e) { if (e && e.name === "AbortError") return; }
+    try { await navigator.clipboard.writeText(url); setToast("Ссылка скопирована — пришли её партнёру"); return; } catch (e) {}
+    setToast(url);
+  };
+  const barVisible = votedCount > 0 || !!partner;
 
   const bodyOk = (item) => {
     if (!item.body) return true;
@@ -550,7 +819,7 @@ function App() {
               {zone.subtitle}
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(276px, 1fr))", gap: 12 }}>
-              {zone.items.map(it => <ItemCard key={it.name} item={it} hue={zone.hue} />)}
+              {zone.items.map(it => { const id = ITEM_INDEX.get(it.name); return <ItemCard key={it.name} item={it} hue={zone.hue} vote={votes[id]} onVote={(s) => setVote(id, s)} />; })}
             </div>
           </section>
         ))}
@@ -560,16 +829,26 @@ function App() {
             Как этим пользоваться вдвоём
           </div>
           <p style={{ fontSize: 14, lineHeight: 1.7, color: "#6E6B78", margin: "0 0 10px" }}>
-            Карточки раскрываются нажатием — внутри подробности. Фильтры режут поле на срезы:
-            чьё оно, какая анатомия у сторон, через какой канал восприятия работает вариант.
+            Карточки раскрываются нажатием — внутри подробности и отметки «да / любопытно / нет».
+            Фильтры режут поле на срезы: чьё оно, какая анатомия у сторон, через какой канал восприятия работает вариант.
           </p>
           <p style={{ fontSize: 14, lineHeight: 1.7, color: "#6E6B78", margin: 0 }}>
-            Рабочий формат такой: каждый проходит карту отдельно и помечает про себя —
-            «да», «любопытно», «точно нет». Потом сравниваете и смотрите, где совпало.
-            Показать пункт на экране проще, чем сказать «я хочу», — в этом, собственно,
-            и смысл карты как предмета. А поскольку рост и спад со временем меняются местами,
-            возвращаться к ней можно из обеих ролей.
+            Рабочий формат такой: каждый проходит карту отдельно и отмечает прямо здесь —
+            откройте карточку и выберите «да», «любопытно» или «нет». Как отметите своё,
+            внизу появится «Поделиться»: пошлите ссылку партнёру, откройте её у себя — и карта
+            сама покажет, где совпало. Отметки хранятся на вашем устройстве, а ссылка из «Поделиться» —
+            заодно их резервная копия: сохраните её себе (например, в «Избранное» в Telegram), и отметки
+            всегда можно вернуть — на этом же или новом устройстве. Показать пункт
+            на экране проще, чем сказать «я хочу», — в этом и смысл карты как предмета. А поскольку
+            рост и спад со временем меняются местами, возвращаться к ней можно из обеих ролей.
           </p>
+          {votedCount > 0 && (
+            <p style={{ fontSize: 13, lineHeight: 1.7, margin: "14px 0 0" }}>
+              <button onClick={clearMine} style={{ background: "none", border: "none", padding: 0, color: "#B0ACA0", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>
+                Очистить мои отметки на этом устройстве
+              </button>
+            </p>
+          )}
         </div>
 
         <footer style={{ marginTop: 44, paddingTop: 24, borderTop: "1px solid #E5E1D6", maxWidth: 660 }}>
@@ -595,7 +874,37 @@ function App() {
             и последствия применения материала.
           </p>
         </footer>
+
+        <div style={{ height: barVisible ? 60 : 0 }} />
       </div>
+
+      {barVisible && (
+        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40, background: "rgba(250,248,244,0.9)", backdropFilter: "blur(10px)", borderTop: "1px solid #E5E1D6" }}>
+          <div style={{ maxWidth: 880, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 13, color: "#55525E", fontWeight: 600 }}>
+              Отмечено {votedCount}<span style={{ color: "#B0ACA0", fontWeight: 500 }}> из {ITEM_COUNT}</span>
+            </span>
+            <div style={{ flex: 1 }} />
+            {votedCount > 0 && (
+              <button onClick={share} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#23222A", color: "#FBFAF6", border: "1px solid #23222A" }}>Поделиться</button>
+            )}
+            <button onClick={() => setCompareOpen(true)} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", background: partner ? "#7D5BA6" : "#F0EDE5", color: partner ? "#FBFAF6" : "#55525E", border: "1px solid " + (partner ? "#7D5BA6" : "transparent") }}>
+              Сравнить{partner ? " ●" : ""}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {compareOpen && (
+        <ComparePanel votes={votes} partner={partner} votedCount={votedCount}
+          setPartner={acceptPartner} onRestore={restoreMine} onClose={() => setCompareOpen(false)} />
+      )}
+
+      {toast && (
+        <div style={{ position: "fixed", left: "50%", bottom: barVisible ? 64 : 20, transform: "translateX(-50%)", zIndex: 70, background: "#23222A", color: "#FBFAF6", fontSize: 13, padding: "10px 16px", borderRadius: 12, maxWidth: "90vw", boxShadow: "0 8px 30px rgba(0,0,0,0.25)", textAlign: "center", wordBreak: "break-all" }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
