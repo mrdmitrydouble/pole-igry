@@ -759,6 +759,23 @@ function App() {
           уже с того, что двое смотрят на одну и ту же карту.
         </p>
 
+        <div style={{ background: "#F4F0E8", border: "1px solid #EBE6DB", borderRadius: 16, padding: "22px 26px", margin: "4px 0 40px", maxWidth: 640 }}>
+          <div style={{ fontFamily: "'Spectral', serif", fontStyle: "italic", fontSize: 21, color: "#403E48", marginBottom: 12 }}>
+            Как этим пользоваться вдвоём
+          </div>
+          <p style={{ fontSize: 14.5, lineHeight: 1.72, color: "#55525E", margin: "0 0 12px" }}>
+            Карточки раскрываются нажатием — внутри подробности и отметки «да / любопытно / нет» и возможность
+            поделиться результатом с партнёром. Показать пункт на экране проще, чем сказать «я хочу», — в этом
+            и смысл карты. А поскольку рост и спад со временем меняются местами, возвращаться к ней можно из обеих ролей.
+          </p>
+          <p style={{ fontSize: 14.5, lineHeight: 1.72, color: "#55525E", margin: 0 }}>
+            Рабочий формат такой: каждый проходит карту отдельно — откройте карточку и выберите «да», «любопытно»
+            или «нет». Как отметите своё, внизу появится «Поделиться»: обменяйтесь ссылками с партнёром — и карта
+            сама покажет, где совпало. Отметки хранятся конфиденциально на вашем устройстве без записей в облаке,
+            а ссылка из «Поделиться» — заодно их резервная копия: сохраните её себе (например, в «Избранное» в Telegram).
+          </p>
+        </div>
+
         <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9B97A3", marginBottom: 10, fontWeight: 550 }}>чьё это поле</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           {Object.entries(WHO).map(([k, v]) => (
@@ -824,32 +841,13 @@ function App() {
           </section>
         ))}
 
-        <div style={{ marginTop: 64, paddingTop: 28, borderTop: "1px solid #E5E1D6", maxWidth: 640 }}>
-          <div style={{ fontFamily: "'Spectral', serif", fontStyle: "italic", fontSize: 20, color: "#403E48", marginBottom: 12 }}>
-            Как этим пользоваться вдвоём
+        {votedCount > 0 && (
+          <div style={{ marginTop: 56, paddingTop: 20, borderTop: "1px solid #EDE9DF", maxWidth: 640 }}>
+            <button onClick={clearMine} style={{ background: "none", border: "none", padding: 0, color: "#B0ACA0", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>
+              Очистить мои отметки на этом устройстве
+            </button>
           </div>
-          <p style={{ fontSize: 14, lineHeight: 1.7, color: "#6E6B78", margin: "0 0 10px" }}>
-            Карточки раскрываются нажатием — внутри подробности и отметки «да / любопытно / нет».
-            Фильтры режут поле на срезы: чьё оно, какая анатомия у сторон, через какой канал восприятия работает вариант.
-          </p>
-          <p style={{ fontSize: 14, lineHeight: 1.7, color: "#6E6B78", margin: 0 }}>
-            Рабочий формат такой: каждый проходит карту отдельно и отмечает прямо здесь —
-            откройте карточку и выберите «да», «любопытно» или «нет». Как отметите своё,
-            внизу появится «Поделиться»: пошлите ссылку партнёру, откройте её у себя — и карта
-            сама покажет, где совпало. Отметки хранятся на вашем устройстве, а ссылка из «Поделиться» —
-            заодно их резервная копия: сохраните её себе (например, в «Избранное» в Telegram), и отметки
-            всегда можно вернуть — на этом же или новом устройстве. Показать пункт
-            на экране проще, чем сказать «я хочу», — в этом и смысл карты как предмета. А поскольку
-            рост и спад со временем меняются местами, возвращаться к ней можно из обеих ролей.
-          </p>
-          {votedCount > 0 && (
-            <p style={{ fontSize: 13, lineHeight: 1.7, margin: "14px 0 0" }}>
-              <button onClick={clearMine} style={{ background: "none", border: "none", padding: 0, color: "#B0ACA0", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>
-                Очистить мои отметки на этом устройстве
-              </button>
-            </p>
-          )}
-        </div>
+        )}
 
         <footer style={{ marginTop: 44, paddingTop: 24, borderTop: "1px solid #E5E1D6", maxWidth: 660 }}>
           <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9B97A3", marginBottom: 12, fontWeight: 550 }}>
