@@ -105,10 +105,7 @@ const ZONES = [
     title: "Живой контакт — несексуальная рамка",
     subtitle: "Настоящие прикосновения и близость — в форматах, где секс вынесен за скобки",
     items: [
-      { name: "Кизомба", channels: ["touch", "bond", "energy"], who: ["me", "alina", "us"], desc: "Самый телесный из парных социальных танцев: объятие в движении.", details: "Постоянный контакт корпусом, ведение через грудную клетку и бёдра. Ближе к чувственному контакту со взаимностью на людях не подобраться — и при этом всё совершенно прилично: это просто танец. В больших городах жизнь кипит: школы, вечеринки почти каждый вечер." },
-      { name: "Бачата", channels: ["touch", "bond", "energy"], who: ["me", "alina", "us"], desc: "Чувственный латиноамериканский танец, много контакта.", details: "Sensual-ветка — волны телом в паре, близкая рамка, музыка, под которую сложно стоять ровно. Структурнее кизомбы и проще на входе: первые связки танцуются уже через пару занятий. Сцена огромная, вечеринки найдутся в любом крупном городе." },
-      { name: "Зук", channels: ["touch", "energy"], who: ["me", "us"], desc: "Бразильский танец: волны, глубокое ведение, гипноз.", details: "Ведение всем корпусом, наклоны, волна через позвоночник — со стороны похоже на замедленное течение. Входной порог выше, чем у бачаты, но опыт связи в паре — один из самых сильных, какие вообще бывают в танцах. Люди, попавшие в зук, редко оттуда уходят." },
-      { name: "Танго", channels: ["touch", "bond"], who: ["me", "us"], desc: "Аргентинское танго: закрытое объятие, тишина, напряжение.", details: "Формальнее латины, зато глубина контакта в закрытом объятии легендарна: одна танда с незнакомым человеком иногда даёт больше близости, чем неделя разговоров. Культура милонг — отдельный социальный мир со своим этикетом. Заходить стоит через школу: тело здесь учится дольше, чем в латине." },
+      { name: "Парные контактные танцы", channels: ["touch", "bond", "energy"], who: ["me", "alina", "us"], desc: "Кизомба, бачата, зук, танго: объятие в движении. Ближе к чувственному контакту со взаимностью на людях не подобраться — и всё совершенно прилично, это просто танец.", details: "Целый мир социальных танцев, где постоянный контакт корпусом — норма. Отличаются они характером близости. Бачата проще всего на входе: первые связки танцуются уже через пару занятий, а sensual-ветка — это волны телом под музыку, под которую сложно стоять ровно. Кизомба — про объятие в движении и ведение через грудную клетку и бёдра. Зук уводит глубже: наклоны, волна через позвоночник, порог выше — но и опыт связи один из самых сильных, какие вообще бывают в танцах. Танго — другой полюс: закрытое объятие, тишина, напряжение; одна танда с незнакомым человеком иногда даёт больше близости, чем неделя разговоров. В любом крупном городе есть школы и вечеринки почти каждый вечер — начинать стоит с той, к которой лежит тело." },
       { name: "Контактная импровизация", channels: ["touch", "energy"], who: ["me", "alina"], desc: "Свободное движение с переносом веса, перекатами, поддержками.", details: "Касаний здесь больше, чем где-либо ещё: вес, перекаты, скольжение, всё тело обо всё тело. При этом сообщество подчёркнуто десексуализирует практику — это этикет, и его важно уважать: КИ про исследование движения. Парадоксальным образом именно поэтому сюда безопасно приходить за прикосновениями." },
       { name: "Экстатик-дэнс", channels: ["energy"], who: ["me", "alina"], desc: "Свободное движение: без разговоров, без веществ, часто босиком.", details: "Контакт на таких вечеринках опционален и случается не всегда, так что как источник тактильности экстатик слаб. Зато как канал энергии и телесной разрядки формат рабочий: час-полтора движения без оценивающих взглядов разгружают не хуже спортзала, а местами глубже." },
       { name: "Обнажённый экстатик", channels: ["energy", "visual"], who: ["me"], desc: "Тот же формат — без одежды.", details: "Прибавляет к движению измерение принятия тела и лёгкой трансгрессии: быть обнажённым среди людей и обнаружить, что мир не рухнул. Рамка остаётся несексуальной, правила обычно строже, чем на обычном экстатике. Опыт для многих неожиданно спокойный." },
@@ -167,21 +164,68 @@ const VOTE = {
 const VOTE_ORDER = ["yes", "maybe", "no"];
 
 // Плоский порядок пунктов = стабильный индекс для хранения и ссылки.
-// ВАЖНО: не переупорядочивать и не удалять пункты задним числом — иначе старые
-// ссылки-сравнения съедут. Дописывать новые пункты можно только в конец списка.
+// Актуальная раскладка — «схема B». Новые пункты дописывать можно только в КОНЕЦ.
+// Если понадобится снова переупорядочить/объединить — снять снимок текущих имён
+// как ещё одну LEGACY-раскладку и добавить её в MIGRATIONS (как сделано для A→B ниже).
 const ITEM_META = [];
 ZONES.forEach(z => z.items.forEach(it => ITEM_META.push({ name: it.name, hue: z.hue, num: z.num, item: it })));
 const ITEM_COUNT = ITEM_META.length;
 const ITEM_INDEX = new Map(ITEM_META.map((m, i) => [m.name, i]));
+const NAME_TO_NEW = ITEM_INDEX; // имя пункта → его индекс в актуальной схеме B
 
-const VOTES_KEY = "poleigry.votes.v1";
+// ---- Совместимость ссылок и сохранённых голосов ----
+// «Схема A» — снимок порядка (85 пунктов) до слияния парных танцев в один пункт.
+// Ссылки-сравнения и localStorage прежних версий закодированы по этим позициям;
+// чтобы они продолжали работать, приводим старые индексы к новым по ИМЕНИ пункта.
+const LEGACY_A = [
+  "Мастурбаторы","Вибраторы: от bullet до wand","Вакуумно-волновые стимуляторы","Дилдо и стимуляция точки G","Тренажёры Кегеля и шарики","Вакуумные помпы","Эрекционные кольца","Торс-кукла","Полноразмерная кукла","Анальные практики и игрушки","Вибратор для простаты","Осознанная простатная практика","Оргазм-контроль: паузы и запреты","Электростимуляция (e-stim)","Масляная практика всего тела","Mindful masturbation","Эджинг и практики задержки","Тантра-соло","Сенсорные эксперименты","Запах как часть ритуала","Баня, сауна, контрасты","Самошибари","Смазки и средства",
+  "ASMR","ASMR-эротика / ASMR-порно","Аудио-эротика","Эротическое гипно-аудио, HFO","Порно: жанровое расширение","VR-порно","Интерактивные девайсы с синхронизацией","Эротическая литература","AI-компаньоны, эротический ролеплей","Эротическое письмо","Дневник фантазий и желаний","Люцидные сны","Фантазирование как практика",
+  "Честный разговор о рассинхроне","Близость без ожиданий","Sensate focus — парный протокол","Шкала интимности — маленькими шагами","Асимметричные форматы","Совместная память и предвкушение","Забота о состоянии — без задней мысли","Собственное поле чувственности","Совместное чтение этой карты",
+  "Вебкам: стримы с донатами","Вебкам: приваты","Кастомный контент от моделей","Рулетки взаимной мастурбации","Секстинг-платформы","VR-чаты","Онлайн-BDSM, дистанционный D/s","Флирт в дейтингах без встреч",
+  "Кизомба","Бачата","Зук","Танго","Контактная импровизация","Экстатик-дэнс","Обнажённый экстатик","Курсы массажа + взаимная практика","Тайский массаж: получать и учиться","Cuddle-встречи","Акройога","Борьба, грэпплинг","Фотопроект","Рисование обнажённой натуры","Тантра-группы мягкого спектра","Телесно-ориентированная терапия","Знакомства «без задачи»",
+  "Эротический массаж","Лингам- и йони-массаж","Sexological bodywork","БДСМ-клубы и мунхи","Шибари","Свинг и секс-позитивные вечеринки","Тантра глубокого спектра","Секс с другими людьми",
+  "Сублимация","Циклы воздержания","Ритмы желания","Сексолог / секс-терапевт","Регуляция базы: сон, гормоны, нагрузка","Медитация на телесность","Иногда — просто прожить",
+];
+// Пункты схемы A, слитые в «Парные контактные танцы»: их имена больше не существуют,
+// но их старые позиции должны указывать на новый объединённый пункт.
+const MERGED_INTO = { "Кизомба": "Парные контактные танцы", "Бачата": "Парные контактные танцы", "Зук": "Парные контактные танцы", "Танго": "Парные контактные танцы" };
+function legacyNameToNew(name) {
+  const target = MERGED_INTO[name] || name;
+  return NAME_TO_NEW.has(target) ? NAME_TO_NEW.get(target) : -1;
+}
+const LEGACY_A_TO_NEW = LEGACY_A.map(legacyNameToNew);
+
+// При схлопывании нескольких старых позиций в одну новую берём «сильнейший» интерес.
+const V_RANK = { yes: 3, maybe: 2, no: 1 };
+function strongerVote(a, b) { if (!a) return b; if (!b) return a; return (V_RANK[b] > V_RANK[a]) ? b : a; }
+
+const VOTES_KEY = "poleigry.votes.v2";       // индексы схемы B
+const LEGACY_VOTES_KEY = "poleigry.votes.v1"; // индексы схемы A (прежние версии)
+function remapLegacyVotes(old) {
+  const out = {};
+  if (!old || typeof old !== "object") return out;
+  for (const k in old) {
+    const li = +k;
+    if (li >= 0 && li < LEGACY_A_TO_NEW.length) {
+      const ni = LEGACY_A_TO_NEW[li];
+      if (ni >= 0) out[ni] = strongerVote(out[ni], old[k]);
+    }
+  }
+  return out;
+}
 function loadVotes() {
-  try { const r = JSON.parse(localStorage.getItem(VOTES_KEY)); return (r && typeof r === "object") ? r : {}; }
-  catch (e) { return {}; }
+  try { const r = JSON.parse(localStorage.getItem(VOTES_KEY)); if (r && typeof r === "object") return r; }
+  catch (e) {}
+  // Схемы B ещё нет — переносим голоса прежней версии (схема A) и сохраняем как B.
+  let mig = {};
+  try { mig = remapLegacyVotes(JSON.parse(localStorage.getItem(LEGACY_VOTES_KEY))); } catch (e) {}
+  if (Object.keys(mig).length) { try { localStorage.setItem(VOTES_KEY, JSON.stringify(mig)); } catch (e) {} }
+  return mig;
 }
 function saveVotes(v) { try { localStorage.setItem(VOTES_KEY, JSON.stringify(v)); } catch (e) {} }
 
-// 2 бита на пункт (0 — нет отметки, 1 да, 2 любопытно, 3 нет) → base64url, префикс версии «A».
+// 2 бита на пункт (0 — нет отметки, 1 да, 2 любопытно, 3 нет) → base64url.
+// Префикс версии: «B» — актуальная схема; «A» — прежняя раскладка (85 позиций).
 const VCODE = { yes: 1, maybe: 2, no: 3 };
 const VDECODE = { 1: "yes", 2: "maybe", 3: "no" };
 function b64urlEnc(bytes) {
@@ -197,13 +241,23 @@ function b64urlDec(str) {
 function encodeVotes(votes) {
   const b = new Uint8Array(Math.ceil(ITEM_COUNT / 4));
   for (let i = 0; i < ITEM_COUNT; i++) { const c = VCODE[votes[i]] || 0; b[i >> 2] |= c << ((i & 3) * 2); }
-  return "A" + b64urlEnc(b);
+  return "B" + b64urlEnc(b);
 }
 function decodeVotes(str) {
-  if (!str || str[0] !== "A") return null;
+  if (!str) return null;
+  const ver = str[0];
+  if (ver !== "A" && ver !== "B") return null;
   try {
     const b = b64urlDec(str.slice(1)), out = {};
-    for (let i = 0; i < ITEM_COUNT; i++) { const c = (b[i >> 2] >> ((i & 3) * 2)) & 3; if (c) out[i] = VDECODE[c]; }
+    if (ver === "B") {
+      for (let i = 0; i < ITEM_COUNT; i++) { const c = (b[i >> 2] >> ((i & 3) * 2)) & 3; if (c) out[i] = VDECODE[c]; }
+    } else {
+      // Схема A: читаем по старым позициям и приводим к новым индексам по имени.
+      for (let i = 0; i < LEGACY_A_TO_NEW.length; i++) {
+        const c = (b[i >> 2] >> ((i & 3) * 2)) & 3;
+        if (c) { const ni = LEGACY_A_TO_NEW[i]; if (ni >= 0) out[ni] = strongerVote(out[ni], VDECODE[c]); }
+      }
+    }
     return out;
   } catch (e) { return null; }
 }
@@ -308,10 +362,7 @@ const ICONS = {
   "Флирт в дейтингах без встреч": (<><rect x="7" y="3.5" width="10" height="17" rx="2.5"/><path d="M12 13.3c-2-1.4-3.3-2.7-3.3-4.1a1.7 1.7 0 0 1 3.3-.6 1.7 1.7 0 0 1 3.3.6c0 1.4-1.3 2.7-3.3 4.1z" fill="currentColor" stroke="none"/></>),
 
   // — Зона V: живой контакт — несексуальная рамка —
-  "Кизомба": (<><circle cx="9" cy="6" r="1.9"/><circle cx="15" cy="6" r="1.9"/><path d="M9 8c-.5 3-.5 5 0 7M15 8c.5 3 .5 5 0 7"/><path d="M9 9.5c2 1.2 4 1.2 6 0"/><path d="M9 15l-1 5M15 15l1 5"/></>),
-  "Бачата": (<><circle cx="9" cy="5.5" r="1.8"/><circle cx="15" cy="5.5" r="1.8"/><path d="M9 7.3c-.5 2.6-.5 4.4 0 6M15 7.3c.5 2.6.5 4.4 0 6"/><path d="M9 8.8c2 1.1 4 1.1 6 0"/><path d="M6 19c2-2 4-2 6 0s4 2 6 0"/></>),
-  "Зук": (<><circle cx="16.5" cy="5" r="1.8"/><path d="M16 7c-2 2-6 3-8.5 6 2.5 1 5 .5 7.5 2.5"/><path d="M8 19c1-1.5.5-3 .5-3"/></>),
-  "Танго": (<><circle cx="12" cy="8.5" r="3.2"/><path d="M10.4 8.3a1.7 1.7 0 0 1 3.2 0" opacity=".55"/><path d="M12 11.7V20"/><path d="M12 15c-2.2 0-3.3-1.1-3.6-2.3M12 15.6c2.2 0 3.3-1.1 3.6-2.3"/></>),
+  "Парные контактные танцы": (<><circle cx="9" cy="6" r="1.9"/><circle cx="15" cy="6" r="1.9"/><path d="M9 8c-.5 3-.5 5 0 7M15 8c.5 3 .5 5 0 7"/><path d="M9 9.5c2 1.2 4 1.2 6 0"/><path d="M9 15l-1 5M15 15l1 5"/></>),
   "Контактная импровизация": (<><path d="M7 7.5a5 5 0 0 0 0 9.5c3 0 4-2.8 5-4.8"/><path d="M17 16.5a5 5 0 0 0 0-9.5c-3 0-4 2.8-5 4.8"/></>),
   "Экстатик-дэнс": (<><circle cx="12" cy="5.5" r="2"/><path d="M12 7.5v7"/><path d="M12 9.2 8.2 6M12 9.2 15.8 6"/><path d="M12 14.5 9 20M12 14.5 15 20"/></>),
   "Обнажённый экстатик": (<><circle cx="12" cy="12" r="8.5" opacity=".4"/><circle cx="12" cy="8" r="1.6"/><path d="M12 9.6v4"/><path d="M12 11 9.6 9.6M12 11l2.4-1.4"/><path d="M12 13.6 10 17.5M12 13.6 14 17.5"/></>),
@@ -417,10 +468,11 @@ function ItemCard({ item, hue, vote, onVote }) {
               background: open ? hue : "#FBFAF6",
               color: open ? "#FFFFFF" : "#A9A599",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 17, lineHeight: 1,
-              transform: open ? "rotate(45deg)" : "none",
+              transform: open ? "rotate(180deg)" : "none",
               transition: "transform .2s, background .2s, color .2s, border-color .2s",
-            }}>+</div>
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
           </div>
           <div style={{ fontSize: 13.5, color: "#6E6B78", marginTop: 4, lineHeight: 1.5 }}>{item.desc}</div>
         </div>
@@ -431,6 +483,12 @@ function ItemCard({ item, hue, vote, onVote }) {
         </div>
       )}
       <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+        {vote && !open && (
+          <span aria-label={"твой выбор: " + VOTE[vote].label} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, background: VOTE[vote].color, color: "#FBFAF6", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            {VOTE[vote].label}
+          </span>
+        )}
         {item.who.map(w => (
           <span key={w} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "#8A8794", fontWeight: 550 }}>
             <Dot color={WHO[w].color} />{WHO[w].label.toLowerCase()}
@@ -622,10 +680,7 @@ function ComparePanel({ votes, partner, setPartner, votedCount, onClose, onResto
 }
 
 function App() {
-  const [whoFilter, setWhoFilter] = useState(null);
-  const [chFilter, setChFilter] = useState(null);
-  const [hiBody, setHiBody] = useState(null); // анатомия стороны роста: 'f' | 'm' | null
-  const [loBody, setLoBody] = useState(null); // анатомия стороны спада
+  const [chFilter, setChFilter] = useState(null); // фильтр по каналу восприятия
 
   // --- Отметки: своё хранится на устройстве, чужое приходит по ссылке ---
   const [votes, setVotes] = useState(loadVotes);
@@ -649,6 +704,16 @@ function App() {
     }
   }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
+  // Возврат к сохранённым отметкам: один раз за сессию мягко подтвердить, что всё на месте.
+  useEffect(() => {
+    const n = Object.keys(votes).length;
+    if (n === 0) return;
+    let greeted = false;
+    try { greeted = !!sessionStorage.getItem("poleigry.greeted"); } catch (e) {}
+    if (greeted) return;
+    try { sessionStorage.setItem("poleigry.greeted", "1"); } catch (e) {}
+    if (!/[#&]c=/.test(location.hash || "")) setToast(`Твои отметки на месте — сохранены на этом устройстве (${n})`);
+  }, []);
 
   const votedCount = Object.keys(votes).length;
   const setVote = (id, state) => setVotes(v => { const n = { ...v }; if (state == null) delete n[id]; else n[id] = state; return n; });
@@ -672,29 +737,16 @@ function App() {
   };
   const barVisible = votedCount > 0 || !!partner;
 
-  const bodyOk = (item) => {
-    if (!item.body) return true;
-    if (whoFilter === "me") return !hiBody || hiBody === item.body;
-    if (whoFilter === "alina") return !loBody || loBody === item.body;
-    const set = [hiBody, loBody].filter(Boolean);
-    if (set.length < 2) return true;
-    return set.includes(item.body);
-  };
-
   const filtered = useMemo(() => {
     return ZONES.map(z => ({
       ...z,
-      items: z.items.filter(it =>
-        (!whoFilter || it.who.includes(whoFilter)) &&
-        (!chFilter || it.channels.includes(chFilter)) &&
-        bodyOk(it)
-      ),
+      items: z.items.filter(it => !chFilter || it.channels.includes(chFilter)),
     })).filter(z => z.items.length > 0);
-  }, [whoFilter, chFilter, hiBody, loBody]);
+  }, [chFilter]);
 
   const total = useMemo(() => filtered.reduce((s, z) => s + z.items.length, 0), [filtered]);
   const grandTotal = ZONES.reduce((s, z) => s + z.items.length, 0);
-  const anyFilter = whoFilter || chFilter || hiBody || loBody;
+  const anyFilter = !!chFilter;
 
   const pill = (active, activeColor) => ({
     padding: "7px 15px", borderRadius: 22, fontSize: 13, cursor: "pointer", fontWeight: 550,
@@ -704,13 +756,6 @@ function App() {
     transition: "background .15s, color .15s",
   });
 
-  const bodyBtn = (active, roleColor) => ({
-    padding: "4px 12px", borderRadius: 16, fontSize: 12.5, cursor: "pointer", fontWeight: 600,
-    background: active ? roleColor : "transparent",
-    color: active ? "#FBFAF6" : "#7A7784",
-    border: `1px solid ${active ? roleColor : "#DDD9CF"}`,
-    transition: "all .15s",
-  });
 
   return (
     <div style={{ minHeight: "100vh", background: "#FAF8F4", color: "#23222A", fontFamily: "'Onest', -apple-system, sans-serif" }}>
@@ -764,50 +809,20 @@ function App() {
             Как этим пользоваться вдвоём
           </div>
           <p style={{ fontSize: 14.5, lineHeight: 1.72, color: "#55525E", margin: "0 0 12px" }}>
-            Карточки раскрываются нажатием — внутри подробности и отметки «да / любопытно / нет» и возможность
-            поделиться результатом с партнёром. Показать пункт на экране проще, чем сказать «я хочу», — в этом
-            и смысл карты. А поскольку рост и спад со временем меняются местами, возвращаться к ней можно из обеих ролей.
+            Каждый пункт — это карточка: нажмите на неё, и внутри откроются подробности и выбор «да / любопытно / нет».
+            Показать пункт на экране проще, чем сказать «я хочу», — в этом и смысл карты. А поскольку рост и спад
+            со временем меняются местами, возвращаться к ней можно из обеих ролей.
           </p>
           <p style={{ fontSize: 14.5, lineHeight: 1.72, color: "#55525E", margin: 0 }}>
-            Рабочий формат такой: каждый проходит карту отдельно — откройте карточку и выберите «да», «любопытно»
+            Рабочий формат такой: каждый проходит карту отдельно — открывает карточки и выбирает «да», «любопытно»
             или «нет». Как отметите своё, внизу появится «Поделиться»: обменяйтесь ссылками с партнёром — и карта
-            сама покажет, где совпало. Отметки хранятся конфиденциально на вашем устройстве без записей в облаке,
-            а ссылка из «Поделиться» — заодно их резервная копия: сохраните её себе (например, в «Избранное» в Telegram).
+            сама покажет, где совпало. Отметки сохраняются прямо на вашем устройстве и остаются на месте, даже если
+            закрыть вкладку или перезагрузить страницу, — без записей в облаке. А ссылка из «Поделиться» — заодно их
+            резервная копия: сохраните её себе (например, в «Избранное» в Telegram).
           </p>
         </div>
 
-        <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9B97A3", marginBottom: 10, fontWeight: 550 }}>чьё это поле</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-          {Object.entries(WHO).map(([k, v]) => (
-            <button key={k} onClick={() => setWhoFilter(whoFilter === k ? null : k)} style={pill(whoFilter === k, v.color)}>
-              {v.label}
-            </button>
-          ))}
-        </div>
-        <p style={{ fontSize: 13, color: "#8A8794", lineHeight: 1.6, maxWidth: 560, margin: "0 0 22px" }}>
-          Рост — тот, у кого желание сейчас ярче. Спад — у кого тише.
-          Роли временные: за годы вместе партнёры обычно успевают побывать в обеих.
-        </p>
-
-        <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9B97A3", marginBottom: 10, fontWeight: 550 }}>конфигурация пары · необязательно</div>
-        <div style={{ display: "flex", gap: 22, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: "#55525E", fontWeight: 550 }}>Рост:</span>
-            <button onClick={() => setHiBody(hiBody === "f" ? null : "f")} style={bodyBtn(hiBody === "f", WHO.me.color)}>Ж</button>
-            <button onClick={() => setHiBody(hiBody === "m" ? null : "m")} style={bodyBtn(hiBody === "m", WHO.me.color)}>М</button>
-          </div>
-          <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: "#55525E", fontWeight: 550 }}>Спад:</span>
-            <button onClick={() => setLoBody(loBody === "f" ? null : "f")} style={bodyBtn(loBody === "f", WHO.alina.color)}>Ж</button>
-            <button onClick={() => setLoBody(loBody === "m" ? null : "m")} style={bodyBtn(loBody === "m", WHO.alina.color)}>М</button>
-          </div>
-        </div>
-        <p style={{ fontSize: 13, color: "#8A8794", lineHeight: 1.6, maxWidth: 560, margin: "0 0 22px" }}>
-          Отметьте анатомию каждой стороны — карта уберёт предметы, которые вам не пригодятся.
-          Пометки «жен.» и «муж.» стоят только на карточках, привязанных к анатомии; всё остальное универсально.
-        </p>
-
-        <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9B97A3", marginBottom: 10, fontWeight: 550 }}>канал восприятия</div>
+        <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9B97A3", marginBottom: 10, fontWeight: 550 }}>канал восприятия · необязательно</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {Object.entries(CHANNELS).map(([k, v]) => (
             <button key={k} onClick={() => setChFilter(chFilter === k ? null : k)} style={pill(chFilter === k, v.color)}>
@@ -816,15 +831,26 @@ function App() {
           ))}
         </div>
 
-        <div style={{ fontSize: 13, color: "#8A8794", marginBottom: 40 }}>
+        <div style={{ fontSize: 13, color: "#8A8794", marginBottom: votedCount === 0 ? 18 : 40 }}>
           {anyFilter ? `показано ${total} из ${grandTotal}` : `все ${grandTotal} вариантов`}
           {anyFilter && (
-            <button onClick={() => { setWhoFilter(null); setChFilter(null); setHiBody(null); setLoBody(null); }}
+            <button onClick={() => setChFilter(null)}
               style={{ marginLeft: 12, background: "none", border: "none", color: "#C2566F", cursor: "pointer", fontSize: 13, textDecoration: "underline", padding: 0 }}>
               сбросить
             </button>
           )}
         </div>
+
+        {votedCount === 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 11, background: "#F4F0E8", border: "1px solid #EBE6DB", borderRadius: 13, padding: "13px 16px", margin: "0 0 34px", maxWidth: 560 }}>
+            <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 15, background: "#fff", border: "1px solid #E3DECF", display: "flex", alignItems: "center", justifyContent: "center", color: "#8A8794" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div style={{ fontSize: 13.5, color: "#55525E", lineHeight: 1.5 }}>
+              Нажмите на любую карточку — внутри подробности и выбор <b style={{ color: "#3F8A68", fontWeight: 600 }}>да</b> / <b style={{ color: "#A07A2E", fontWeight: 600 }}>любопытно</b> / <b style={{ color: "#9B97A3", fontWeight: 600 }}>нет</b>. Отметки сохранятся на этом устройстве.
+            </div>
+          </div>
+        )}
 
         {filtered.map(zone => (
           <section key={zone.id} style={{ marginBottom: 54 }}>
@@ -879,9 +905,17 @@ function App() {
       {barVisible && (
         <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40, background: "rgba(250,248,244,0.9)", backdropFilter: "blur(10px)", borderTop: "1px solid #E5E1D6" }}>
           <div style={{ maxWidth: 880, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 13, color: "#55525E", fontWeight: 600 }}>
-              Отмечено {votedCount}<span style={{ color: "#B0ACA0", fontWeight: 500 }}> из {ITEM_COUNT}</span>
-            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13, color: "#55525E", fontWeight: 600, whiteSpace: "nowrap" }}>
+                Отмечено {votedCount}<span style={{ color: "#B0ACA0", fontWeight: 500 }}> из {ITEM_COUNT}</span>
+              </span>
+              {votedCount > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9B9788", fontWeight: 500, whiteSpace: "nowrap" }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                  сохранено
+                </span>
+              )}
+            </div>
             <div style={{ flex: 1 }} />
             {votedCount > 0 && (
               <button onClick={share} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#23222A", color: "#FBFAF6", border: "1px solid #23222A" }}>Поделиться</button>
